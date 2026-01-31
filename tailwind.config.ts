@@ -57,6 +57,14 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        status: {
+          todo: "hsl(var(--status-todo))",
+          "todo-foreground": "hsl(var(--status-todo-foreground))",
+          progress: "hsl(var(--status-progress))",
+          "progress-foreground": "hsl(var(--status-progress-foreground))",
+          completed: "hsl(var(--status-completed))",
+          "completed-foreground": "hsl(var(--status-completed-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
