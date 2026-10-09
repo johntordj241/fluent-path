@@ -37,7 +37,7 @@ const Progress = () => {
       return;
     }
     const result = parseImport(text);
-    if (!result.ok) {
+    if ('error' in result) {
       setMessage({ kind: 'error', text: `Import cancelled: ${result.error}` });
       return;
     }
@@ -48,9 +48,9 @@ const Progress = () => {
   const confirmImport = () => {
     if (!pending) return;
     const result = replaceAll(pending);
-    setMessage(result.ok
-      ? { kind: 'ok', text: `Import complete: ${pending.length} chapters restored.${result.backupKey ? ` Previous data backed up (${result.backupKey}).` : ''}` }
-      : { kind: 'error', text: `Import failed: ${result.error}` });
+    setMessage('error' in result
+      ? { kind: 'error', text: `Import failed: ${result.error}` }
+      : { kind: 'ok', text: `Import complete: ${pending.length} chapters restored.${result.backupKey ? ` Previous data backed up (${result.backupKey}).` : ''}` });
     setPending(null);
   };
 
