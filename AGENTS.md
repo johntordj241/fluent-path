@@ -1,0 +1,2 @@
+- Stored chapter data is only replaced via `importChapters`, which backs up the current value first and aborts if the backup fails — prevents silent data loss.
+- While stored data is corrupted, `useChapters` keeps edits in memory only — the unreadable original must never be overwritten without explicit user import.
