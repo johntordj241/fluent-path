@@ -105,3 +105,64 @@ export function downloadExport(chapters: Chapter[]) {
 }
 
 const clone = (c: Chapter[]) => c.map(x => ({ ...x }));
+
+export const PRE_IMPORT_PREFIX = 'english-course-chapters.pre-import-';
+
+export type ParseImportResult =
+  | { ok: true; chapters: Chapter[] }
+  | { ok: false; error: string };
+
+/** Strictly validates a file produced by buildExport. Never throws. */
+export function parseImport(text: string): ParseImportResult {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return { ok: false, error: 'The file is not valid JSON.' };
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { ok: false, error: 'The file is not a Fluent Path export.' };
+  }
+  const d = data as Record<string, unknown>;
+  if (d.app !== 'fluent-path' || d.version !== 1) {
+    return { ok: false, error: 'The file is not a Fluent Path export (version 1).' };
+  }
+  if (!isValidChapterList(d.chapters) || d.chapters.length === 0) {
+    return { ok: false, error: 'The chapters in this file are missing or invalid.' };
+  }
+  const ids = new Set(d.chapters.map(c => c.id));
+  if (ids.size !== d.chapters.length) {
+    return { ok: false, error: 'The file contains duplicate chapters.' };
+  }
+  return { ok: true, chapters: d.chapters.map(c => ({ ...c })) };
+}
+
+export type ImportResult =
+  | { ok: true; backupKey: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Replaces stored chapters. The current raw value (if any) is copied to a
+ * pre-import backup key first; if that backup fails, nothing is replaced.
+ */
+export function importChapters(storage: Storage, chapters: Chapter[]): ImportResult {
+  let raw: string | null;
+  try {
+    raw = storage.getItem(STORAGE_KEY);
+  } catch {
+    return { ok: false, error: 'Storage is unavailable. Nothing was changed.' };
+  }
+  let backupKey: string | null = null;
+  if (raw !== null) {
+    backupKey = PRE_IMPORT_PREFIX + Date.now();
+    try {
+      storage.setItem(backupKey, raw);
+    } catch {
+      return { ok: false, error: 'Could not back up current data. Nothing was changed.' };
+    }
+  }
+  if (!saveChapters(storage, chapters)) {
+    return { ok: false, error: 'Could not save imported data. Current data was kept.' };
+  }
+  return { ok: true, backupKey };
+}
