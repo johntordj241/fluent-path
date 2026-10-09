@@ -1,12 +1,58 @@
 import { useChapters } from '@/hooks/useChapters';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
-import { downloadExport } from '@/lib/chapterStorage';
+import { Download, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { downloadExport, parseImport } from '@/lib/chapterStorage';
+import { Chapter } from '@/types/chapter';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+const readText = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result ?? ''));
+    r.onerror = () => reject(r.error);
+    r.readAsText(file);
+  });
 
 const Progress = () => {
-  const { getProgress, chapters, isLoading, isCorrupted, corruptedBackupKey } = useChapters();
+  const { getProgress, chapters, isLoading, isCorrupted, corruptedBackupKey, saveFailed, replaceAll } = useChapters();
   const progress = getProgress();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pending, setPending] = useState<Chapter[] | null>(null);
+  const [message, setMessage] = useState<{ kind: 'error' | 'ok'; text: string } | null>(null);
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    let text: string;
+    try {
+      text = await readText(file);
+    } catch {
+      setMessage({ kind: 'error', text: 'Import cancelled: the file could not be read.' });
+      return;
+    }
+    const result = parseImport(text);
+    if ('error' in result) {
+      setMessage({ kind: 'error', text: `Import cancelled: ${result.error}` });
+      return;
+    }
+    setMessage(null);
+    setPending(result.chapters);
+  };
+
+  const confirmImport = () => {
+    if (!pending) return;
+    const result = replaceAll(pending);
+    setMessage('error' in result
+      ? { kind: 'error', text: `Import failed: ${result.error}` }
+      : { kind: 'ok', text: `Import complete: ${pending.length} chapters restored.${result.backupKey ? ` Previous data backed up (${result.backupKey}).` : ''}` });
+    setPending(null);
+  };
 
   if (isLoading) {
     return (
@@ -74,16 +120,61 @@ const Progress = () => {
         <div role="alert" className="mt-6 border border-border rounded-lg p-4 text-sm text-foreground">
           Saved data could not be read. A raw copy was kept
           {corruptedBackupKey ? ` (${corruptedBackupKey})` : ''} and is included in the export.
+          Changes will not be saved until you import a valid backup.
+        </div>
+      )}
+
+      {saveFailed && !isCorrupted && (
+        <div role="alert" className="mt-6 border border-border rounded-lg p-4 text-sm text-foreground">
+          Your browser storage is unavailable. Changes are not being saved.
+        </div>
+      )}
+
+      {message && (
+        <div
+          role={message.kind === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+          className="mt-6 border border-border rounded-lg p-4 text-sm text-foreground"
+        >
+          {message.text}
         </div>
       )}
 
       {/* Backup */}
-      <div className="mt-6">
-        <Button variant="outline" size="sm" onClick={() => downloadExport(chapters)}>
-          <Download className="w-4 h-4 mr-2" />
-          Export my data (JSON)
-        </Button>
-      </div>
+      <section aria-labelledby="backup-heading" className="mt-6">
+        <h2 id="backup-heading" className="sr-only">Backup</h2>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => downloadExport(chapters)}
+            aria-label="Export my data as a JSON file">
+            <Download className="w-4 h-4 mr-2" aria-hidden="true" />
+            Export my data (JSON)
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}
+            aria-label="Import data from a JSON backup file">
+            <Upload className="w-4 h-4 mr-2" aria-hidden="true" />
+            Import data (JSON)
+          </Button>
+        </div>
+        <input ref={fileRef} type="file" accept="application/json,.json" className="hidden"
+          data-testid="import-input" aria-hidden="true" tabIndex={-1} onChange={onFile} />
+      </section>
+
+      <AlertDialog open={pending !== null} onOpenChange={open => !open && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace your current data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This file contains {pending?.length ?? 0} chapters. Your current progress and notes
+              ({chapters.length} chapters) will be replaced. A backup copy of the current data is
+              saved automatically before import.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmImport}>Replace data</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

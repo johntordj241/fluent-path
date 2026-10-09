@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Chapter, ChapterStatus } from '@/types/chapter';
 import { initialChapters } from '@/data/initialChapters';
 import {
@@ -7,6 +7,8 @@ import {
   applyStatus,
   applyNotes,
   computeProgress,
+  importChapters,
+  ImportResult,
 } from '@/lib/chapterStorage';
 
 export function useChapters() {
@@ -14,11 +16,14 @@ export function useChapters() {
   const [isLoading, setIsLoading] = useState(true);
   const [corruptedBackupKey, setCorruptedBackupKey] = useState<string | null>(null);
   const [isCorrupted, setIsCorrupted] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     const result = loadChapters(localStorage, initialChapters);
     setChapters(result.chapters);
-    if (result.state === 'empty') saveChapters(localStorage, result.chapters);
+    if (result.state === 'empty' && !saveChapters(localStorage, result.chapters)) {
+      setSaveFailed(true);
+    }
     if (result.state === 'corrupted') {
       setIsCorrupted(true);
       setCorruptedBackupKey(result.backupKey);
@@ -27,10 +32,12 @@ export function useChapters() {
     setIsLoading(false);
   }, []);
 
+  // While stored data is corrupted/unreadable, changes stay in memory only:
+  // the stored value is never silently overwritten. Recovery = explicit import.
   const update = (fn: (prev: Chapter[]) => Chapter[]) =>
     setChapters(prev => {
       const updated = fn(prev);
-      saveChapters(localStorage, updated);
+      if (!isCorrupted && !saveChapters(localStorage, updated)) setSaveFailed(true);
       return updated;
     });
 
@@ -40,6 +47,16 @@ export function useChapters() {
   const updateChapterNotes = (id: string, notes: string) =>
     update(prev => applyNotes(prev, id, notes));
 
+  const replaceAll = useCallback((next: Chapter[]): ImportResult => {
+    const result = importChapters(localStorage, next);
+    if (result.ok) {
+      setChapters(next);
+      setIsCorrupted(false);
+      setSaveFailed(false);
+    }
+    return result;
+  }, []);
+
   const getChapter = (id: string) => chapters.find(ch => ch.id === id);
   const getProgress = () => computeProgress(chapters);
 
@@ -48,8 +65,10 @@ export function useChapters() {
     isLoading,
     isCorrupted,
     corruptedBackupKey,
+    saveFailed,
     updateChapterStatus,
     updateChapterNotes,
+    replaceAll,
     getChapter,
     getProgress,
   };

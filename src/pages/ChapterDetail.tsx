@@ -10,7 +10,7 @@ import { ArrowLeft, CheckCircle, Clock, Circle } from 'lucide-react';
 const ChapterDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getChapter, updateChapterStatus, updateChapterNotes, isLoading } = useChapters();
+  const { getChapter, updateChapterStatus, updateChapterNotes, isLoading, isCorrupted, saveFailed } = useChapters();
   
   const chapter = getChapter(id || '');
   const [notes, setNotes] = useState('');
@@ -121,8 +121,15 @@ const ChapterDetail = () => {
             onChange={(e) => handleNotesChange(e.target.value)}
             placeholder="Write your notes, questions, or key takeaways here..."
             className="min-h-32 resize-none"
+            aria-label="Personal notes"
           />
-          <p className="text-xs text-muted-foreground mt-2">Auto-saved</p>
+          {isCorrupted || saveFailed ? (
+            <p role="alert" className="text-xs text-foreground mt-2">
+              Not saved: stored data is unreadable or storage is unavailable. See the Progress page.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-2">Auto-saved</p>
+          )}
         </section>
 
         {/* Status Actions */}
@@ -135,9 +142,11 @@ const ChapterDetail = () => {
                 variant={chapter.status === status ? "default" : "outline"}
                 size="sm"
                 onClick={() => updateChapterStatus(chapter.id, status)}
+                aria-label={label}
+                aria-pressed={chapter.status === status}
                 className="flex items-center gap-2"
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4" aria-hidden="true" />
                 {label.replace('Mark as ', '')}
               </Button>
             ))}

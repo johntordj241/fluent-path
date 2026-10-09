@@ -34,3 +34,10 @@ npm run build    # production build
 2. Content source: replace `initialChapters` with a read from Notion (via a server-side function — Notion tokens must never ship to the browser).
 3. User data (status, notes): move to a database (e.g. Supabase/Lovable Cloud) keyed by user + chapter id; import the exported JSON once.
 4. Keep `chapterStorage.ts` pure functions as the domain layer; only the load/save adapters change.
+
+## Import / sécurité des données (Sprint L0-B)
+
+- Page Progress → « Import data (JSON) » : accepte uniquement un fichier produit par l'export (`app: "fluent-path"`, `version: 1`, chapitres valides, ids uniques). Aperçu du nombre de chapitres et confirmation explicite obligatoires.
+- Avant remplacement, la valeur actuelle est copiée sous `english-course-chapters.pre-import-<timestamp>`. Si cette copie échoue, rien n'est remplacé.
+- Si les données stockées sont corrompues, les modifications restent en mémoire et la clé d'origine n'est jamais écrasée ; seule une importation confirmée la remplace.
+- CI : `.github/workflows/ci.yml` (npm ci, lint, typecheck, tests, build) — s'exécute seulement si le dépôt est poussé sur GitHub.
