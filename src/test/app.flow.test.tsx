@@ -40,7 +40,7 @@ describe('corrupted storage', () => {
     localStorage.setItem(STORAGE_KEY, '{corrupt');
     const id = initialChapters[0].id;
     go(`/chapter/${id}`);
-    fireEvent.click(await screen.findByRole('button', { name: /Mark as/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark as Completed' }));
     expect(localStorage.getItem(STORAGE_KEY)).toBe('{corrupt');
   });
   it('announces the problem on the progress page', async () => {
