@@ -1,8 +1,11 @@
 import { useChapters } from '@/hooks/useChapters';
 import { ProgressBar } from '@/components/ProgressBar';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { downloadExport } from '@/lib/chapterStorage';
 
 const Progress = () => {
-  const { getProgress, chapters, isLoading } = useChapters();
+  const { getProgress, chapters, isLoading, isCorrupted, corruptedBackupKey } = useChapters();
   const progress = getProgress();
 
   if (isLoading) {
@@ -65,6 +68,21 @@ const Progress = () => {
             <li>• {progress.inProgress} chapter{progress.inProgress > 1 ? 's' : ''} in progress</li>
           )}
         </ul>
+      </div>
+
+      {isCorrupted && (
+        <div role="alert" className="mt-6 border border-border rounded-lg p-4 text-sm text-foreground">
+          Saved data could not be read. A raw copy was kept
+          {corruptedBackupKey ? ` (${corruptedBackupKey})` : ''} and is included in the export.
+        </div>
+      )}
+
+      {/* Backup */}
+      <div className="mt-6">
+        <Button variant="outline" size="sm" onClick={() => downloadExport(chapters)}>
+          <Download className="w-4 h-4 mr-2" />
+          Export my data (JSON)
+        </Button>
       </div>
     </div>
   );
