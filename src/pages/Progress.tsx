@@ -10,6 +10,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+const readText = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result ?? ''));
+    r.onerror = () => reject(r.error);
+    r.readAsText(file);
+  });
+
 const Progress = () => {
   const { getProgress, chapters, isLoading, isCorrupted, corruptedBackupKey, saveFailed, replaceAll } = useChapters();
   const progress = getProgress();
@@ -21,7 +29,14 @@ const Progress = () => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const result = parseImport(await file.text());
+    let text: string;
+    try {
+      text = await readText(file);
+    } catch {
+      setMessage({ kind: 'error', text: 'Import cancelled: the file could not be read.' });
+      return;
+    }
+    const result = parseImport(text);
     if (!result.ok) {
       setMessage({ kind: 'error', text: `Import cancelled: ${result.error}` });
       return;
